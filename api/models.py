@@ -1,6 +1,10 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import FileExtensionValidator
+from django.core.validators import (
+    FileExtensionValidator,
+    MaxValueValidator,
+    MinValueValidator,
+)
 from django.db import models
 
 
@@ -24,7 +28,13 @@ class AccountTier(models.Model):
 
 
 class Size(models.Model):
-    height = models.IntegerField(unique=True)
+    height = models.PositiveIntegerField(
+        unique=True,
+        validators=[
+            MinValueValidator(1),
+            MaxValueValidator(2000),
+        ],
+    )
 
     def __str__(self):
         return str(self.height)
