@@ -28,7 +28,7 @@ class AccountTier(models.Model):
 
 
 class Size(models.Model):
-    height = models.PositiveIntegerField(
+    height = models.IntegerField(
         unique=True,
         validators=[
             MinValueValidator(1),
@@ -41,4 +41,13 @@ class Size(models.Model):
 
 
 class User(AbstractUser):
-    tier = models.ForeignKey(AccountTier, on_delete=models.CASCADE, null=True)
+    tier = models.ForeignKey(AccountTier, on_delete=models.CASCADE)
+
+    def save(self, *args, **kwargs):
+        try:
+            self.tier = AccountTier.objects.get(name="Basic")
+        except AccountTier.DoesNotExist:
+            raise AccountTier.DoesNotExist(
+                "Built-in tiers not found, try to load fixtures first."
+            )
+        super(User, self).save(*args, **kwargs)
