@@ -22,14 +22,6 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
-    add_fieldsets = (
-        (
-            None,
-            {
-                "fields": ("username", "password1", "password2", "tier"),
-            },
-        ),
-    )
 
 
 @admin.register(Size)
