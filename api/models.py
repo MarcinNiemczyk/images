@@ -19,9 +19,15 @@ class AccountTier(models.Model):
     orginal_image = models.BooleanField()
     generate_links = models.BooleanField()
 
+    def __str__(self):
+        return self.name
+
 
 class Size(models.Model):
     height = models.IntegerField(unique=True)
+
+    def __str__(self):
+        return str(self.height)
 
 
 class User(AbstractUser):
