@@ -1,3 +1,8 @@
 from django.contrib import admin
 
-# Register your models here.
+from api.models import Image
+
+
+@admin.register(Image)
+class ImageAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "author")
