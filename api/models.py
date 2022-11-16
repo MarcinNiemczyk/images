@@ -44,10 +44,11 @@ class User(AbstractUser):
     tier = models.ForeignKey(AccountTier, on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):
-        try:
-            self.tier = AccountTier.objects.get(name="Basic")
-        except AccountTier.DoesNotExist:
-            raise AccountTier.DoesNotExist(
-                "Built-in tiers not found, try to load fixtures first."
-            )
+        if not self.pk:
+            try:
+                self.tier = AccountTier.objects.get(name="Basic")
+            except AccountTier.DoesNotExist:
+                raise AccountTier.DoesNotExist(
+                    "Built-in tiers not found, try to load fixtures first."
+                )
         super(User, self).save(*args, **kwargs)
