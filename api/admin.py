@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import Group
 
-from api.models import AccountTier, Image, Size, User
+from api.models import AccountTier, Image, Size, Thumbnail, User
 
 
 @admin.register(Image)
@@ -27,6 +27,16 @@ class UserAdmin(BaseUserAdmin):
 @admin.register(Size)
 class SizeAdmin(admin.ModelAdmin):
     ordering = ("height",)
+
+
+@admin.register(Thumbnail)
+class ThumbnailAdmin(admin.ModelAdmin):
+    list_display = ("__str__", "size", "get_author")
+
+    def get_author(self, obj):
+        return obj.orginal_image.author
+
+    get_author.short_description = "Author"
 
 
 admin.site.register(AccountTier)
