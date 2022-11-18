@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import (
@@ -44,6 +46,12 @@ class Thumbnail(models.Model):
     image = models.ImageField()
     orginal_image = models.ForeignKey(Image, on_delete=models.CASCADE)
     size = models.ForeignKey(Size, on_delete=models.CASCADE)
+
+
+class TemporaryLink(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    expiry_time = models.DateTimeField()
+    image = models.ForeignKey(Image, on_delete=models.CASCADE)
 
 
 class User(AbstractUser):
