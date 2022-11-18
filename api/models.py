@@ -40,6 +40,12 @@ class Size(models.Model):
         return str(self.height)
 
 
+class Thumbnail(models.Model):
+    image = models.ImageField()
+    orginal_image = models.ForeignKey(Image, on_delete=models.CASCADE)
+    size = models.ForeignKey(Size, on_delete=models.CASCADE)
+
+
 class User(AbstractUser):
     tier = models.ForeignKey(AccountTier, on_delete=models.CASCADE)
 
