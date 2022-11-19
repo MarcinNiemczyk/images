@@ -1,3 +1,6 @@
+import uuid
+from datetime import timedelta
+
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import (
@@ -6,6 +9,7 @@ from django.core.validators import (
     MinValueValidator,
 )
 from django.db import models
+from django.utils import timezone
 
 
 class Image(models.Model):
@@ -44,6 +48,26 @@ class Thumbnail(models.Model):
     image = models.ImageField()
     orginal_image = models.ForeignKey(Image, on_delete=models.CASCADE)
     size = models.ForeignKey(Size, on_delete=models.CASCADE)
+
+
+class TemporaryLink(models.Model):
+    link = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    expiry_time = models.DateTimeField(blank=True)
+    seconds = models.IntegerField(
+        validators=[
+            MinValueValidator(300),
+            MaxValueValidator(30000),
+        ],
+    )
+    image = models.ForeignKey(Image, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.link)
+
+    def save(self, *args, **kwargs):
+        seconds = timedelta(seconds=self.seconds)
+        self.expiry_time = timezone.now() + seconds
+        super(TemporaryLink, self).save(*args, **kwargs)
 
 
 class User(AbstractUser):
