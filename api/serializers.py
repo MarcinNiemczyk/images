@@ -38,12 +38,19 @@ class ImageSerializer(serializers.ModelSerializer):
         return output
 
 
+class UserImagesForeignKey(serializers.PrimaryKeyRelatedField):
+    def get_queryset(self):
+        user = self.context["request"].user
+        return Image.objects.filter(author=user)
+
+
 class TemporaryLinkSerializer(serializers.ModelSerializer):
     link = serializers.SerializerMethodField("get_absolute_url")
+    image = UserImagesForeignKey()
 
     class Meta:
         model = TemporaryLink
-        fields = "__all__"
+        fields = ("link", "expiry_time", "image", "seconds")
         read_only_fields = ("expiry_time", "link")
         extra_kwargs = {
             "seconds": {"write_only": True},
