@@ -1,3 +1,4 @@
+from django.urls import reverse
 from rest_framework import serializers
 
 from api.models import Image, TemporaryLink
@@ -38,6 +39,20 @@ class ImageSerializer(serializers.ModelSerializer):
 
 
 class TemporaryLinkSerializer(serializers.ModelSerializer):
+    link = serializers.SerializerMethodField("get_absolute_url")
+
     class Meta:
         model = TemporaryLink
         fields = "__all__"
+        read_only_fields = ("expiry_time", "link")
+        extra_kwargs = {
+            "seconds": {"write_only": True},
+            "image": {"write_only": True},
+        }
+
+    def get_absolute_url(self, obj):
+        request = self.context.get("request")
+        url = request.build_absolute_uri(
+            reverse("temporary-links", kwargs={"link": obj.link})
+        )
+        return url

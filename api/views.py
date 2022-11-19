@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.response import Response
@@ -33,5 +35,6 @@ class PublicTemporaryLinkView(APIView):
             content = {"detail": "Bad or expired link"}
             return Response(content, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = TemporaryLinkSerializer(temporary_link)
-        return Response(serializer.data)
+        image_path = settings.MEDIA_ROOT / temporary_link.image.image.name
+        image_data = open(image_path, "rb").read()
+        return HttpResponse(image_data, content_type="image/jpg")
