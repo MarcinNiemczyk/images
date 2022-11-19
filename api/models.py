@@ -49,9 +49,12 @@ class Thumbnail(models.Model):
 
 
 class TemporaryLink(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    link = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     expiry_time = models.DateTimeField()
     image = models.ForeignKey(Image, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.link)
 
 
 class User(AbstractUser):

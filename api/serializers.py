@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from api.models import Image
+from api.models import Image, TemporaryLink
 
 
 class ImageSerializer(serializers.ModelSerializer):
@@ -35,3 +35,9 @@ class ImageSerializer(serializers.ModelSerializer):
                 output[thumbnail.size.height] = thumbnail_url
 
         return output
+
+
+class TemporaryLinkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TemporaryLink
+        fields = "__all__"
