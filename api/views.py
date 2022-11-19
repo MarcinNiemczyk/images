@@ -2,10 +2,12 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.models import Image, TemporaryLink
+from api.permissions import GenerateLinksAllowed
 from api.serializers import ImageSerializer, TemporaryLinkSerializer
 
 
@@ -18,6 +20,7 @@ class ImageViewSet(viewsets.ModelViewSet):
 
 class TemporaryLinkViewSet(viewsets.ModelViewSet):
     serializer_class = TemporaryLinkSerializer
+    permission_classes = [IsAuthenticated, GenerateLinksAllowed]
 
     def get_queryset(self):
         return TemporaryLink.objects.filter(
