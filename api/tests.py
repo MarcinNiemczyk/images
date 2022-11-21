@@ -9,28 +9,29 @@ from PIL import Image as img
 from api.models import AccountTier, Image, Size, TemporaryLink, User
 
 
-class ModelsTestCase(TestCase):
+class SetUpClass(TestCase):
     def setUp(self):
+        image = img.new("RGB", size=(50, 50), color=(256, 0, 0))
+        image_bytes = BytesIO()
+        image.save(image_bytes, "PNG")
+        image_file = ImageFile(image_bytes, name="test_image")
+        self.image = Image.objects.create(image=image_file, author=self.user)
+        self.size = Size.objects.create(height=200)
         self.account_tier = AccountTier.objects.create(
             name="Basic",
             orginal_image=False,
             generate_links=False,
         )
-        self.size = Size.objects.create(height=200)
-
-        image = img.new("RGB", size=(50, 50), color=(256, 0, 0))
-        image_bytes = BytesIO()
-        image.save(image_bytes, "PNG")
-        image_file = ImageFile(image_bytes, name="test_image")
-
         self.user = User.objects.create(
             username="foo", password="bar", tier=self.account_tier
         )
-        self.image = Image.objects.create(image=image_file, author=self.user)
+
         self.temporary_link = TemporaryLink.objects.create(
             seconds=600, image=self.image
         )
 
+
+class ModelsTestCase(SetUpClass):
     def test_account_tier_name_max_length(self):
         max_length = self.account_tier._meta.get_field("name").max_length
         self.assertEqual(max_length, 50)
