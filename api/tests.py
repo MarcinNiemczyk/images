@@ -1,19 +1,22 @@
 from io import BytesIO
 
 from django.core.files.images import ImageFile
-from django.test import TestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import RequestFactory, TestCase
+from django.urls import reverse
 from django.utils import timezone
 from PIL import Image as img
 
 from api.models import AccountTier, Image, Size, TemporaryLink, Thumbnail, User
+from api.serializers import ImageSerializer, TemporaryLinkSerializer
 
 
 class SetUpClass(TestCase):
     def setUp(self):
         image = img.new("RGB", size=(50, 50), color=(256, 0, 0))
         image_bytes = BytesIO()
-        image.save(image_bytes, "PNG")
-        image_file = ImageFile(image_bytes, name="test_image")
+        image.save(image_bytes, format="png")
+        self.image_file = ImageFile(image_bytes, name="test_image")
         self.size = Size.objects.create(height=200)
         self.account_tier = AccountTier.objects.create(
             name="Basic",
@@ -26,7 +29,9 @@ class SetUpClass(TestCase):
         self.user = User.objects.create(
             username="foo", password="bar", tier=self.account_tier
         )
-        self.image = Image.objects.create(image=image_file, author=self.user)
+        self.image = Image.objects.create(
+            image=self.image_file, author=self.user
+        )
         self.temporary_link = TemporaryLink.objects.create(
             seconds=600, image=self.image
         )
@@ -88,3 +93,75 @@ class ModelsTestCase(SetUpClass):
         self.assertEqual(
             Thumbnail.objects.count(), self.image.thumbnail_set.count()
         )
+
+
+class SerializersTestCase(SetUpClass):
+    def setUp(self):
+        super(SerializersTestCase, self).setUp()
+        self.request = RequestFactory().get("./foo")
+        self.request.user = self.user
+
+    def test_image_output_contains_expected_fields(self):
+        serializer = ImageSerializer(
+            instance=self.image, context={"request": self.request}
+        )
+        data = serializer.data
+        self.assertCountEqual(data.keys(), ["images"])
+
+    def test_image_output_contains_expected_thumbnails(self):
+        serializer = ImageSerializer(
+            instance=self.image, context={"request": self.request}
+        )
+        data = serializer.data
+        expected_thumbnail_sizes = [
+            self.size.height,
+            Size.objects.get(id=2).height,
+        ]
+        self.assertCountEqual(data["images"].keys(), expected_thumbnail_sizes)
+
+    def test_image_output_depends_on_account_tier(self):
+        self.image.author.tier.orginal_image = False
+        serializer = ImageSerializer(
+            instance=self.image, context={"request": self.request}
+        )
+        data = serializer.data
+        expected_keys = [self.size.height, Size.objects.get(id=2).height]
+        self.assertCountEqual(data["images"].keys(), expected_keys)
+
+        self.image.author.tier.orginal_image = True
+        serializer = ImageSerializer(
+            instance=self.image, context={"request": self.request}
+        )
+        data = serializer.data
+        expected_keys = [
+            self.size.height,
+            Size.objects.get(id=2).height,
+            "orginal",
+        ]
+        self.assertCountEqual(data["images"].keys(), expected_keys)
+
+    def test_image_input_assigns_right_author(self):
+        image = BytesIO()
+        img.new("RGB", (100, 100)).save(image, "JPEG")
+        image.seek(0)
+        image_file = SimpleUploadedFile("test_image.jpg", image.getvalue())
+
+        serializer_data = {"image": image_file}
+        serializer = ImageSerializer(
+            data=serializer_data, context={"request": self.request}
+        )
+        self.assertTrue(serializer.is_valid())
+        image_obj = serializer.save()
+        self.assertEqual(image_obj.author, self.user)
+
+    def test_temporary_link_output_url_is_absolute(self):
+        serializer = TemporaryLinkSerializer(
+            instance=self.temporary_link, context={"request": self.request}
+        )
+        data = serializer.data
+        expected_url = self.request.build_absolute_uri(
+            reverse(
+                "temporary-links", kwargs={"link": self.temporary_link.link}
+            )
+        )
+        self.assertEqual(data["link"], expected_url)
