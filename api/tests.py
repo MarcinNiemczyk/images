@@ -20,7 +20,9 @@ class SetUpClass(TestCase):
             orginal_image=False,
             generate_links=False,
         )
-        self.account_tier.thumbnail_sizes.add(self.size)
+        self.account_tier.thumbnail_sizes.add(
+            self.size, Size.objects.create(height=100)
+        )
         self.user = User.objects.create(
             username="foo", password="bar", tier=self.account_tier
         )
@@ -75,5 +77,14 @@ class ModelsTestCase(SetUpClass):
             User.objects.create(username="foo", password="bar")
 
     def test_new_image_sends_signal_to_create_thumbnails(self):
-        thumbnail = Thumbnail.objects.get(id=1)
-        self.assertEqual(thumbnail, self.image.thumbnail_set.first())
+        thumbnail1 = Thumbnail.objects.get(id=1)
+        thumbnail2 = Thumbnail.objects.get(id=2)
+        self.assertEqual(thumbnail1, self.image.thumbnail_set.first())
+        self.assertEqual(thumbnail2, self.image.thumbnail_set.last())
+
+    def test_updated_image_does_not_create_thumbnails(self):
+        new_author = User.objects.create(username="bar", password="baz")
+        self.image.author = new_author
+        self.assertEqual(
+            Thumbnail.objects.count(), self.image.thumbnail_set.count()
+        )
