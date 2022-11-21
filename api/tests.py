@@ -1,4 +1,3 @@
-from datetime import timedelta
 from io import BytesIO
 
 from django.core.files.images import ImageFile
@@ -6,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 from PIL import Image as img
 
-from api.models import AccountTier, Image, Size, TemporaryLink, User
+from api.models import AccountTier, Image, Size, TemporaryLink, Thumbnail, User
 
 
 class SetUpClass(TestCase):
@@ -15,17 +14,17 @@ class SetUpClass(TestCase):
         image_bytes = BytesIO()
         image.save(image_bytes, "PNG")
         image_file = ImageFile(image_bytes, name="test_image")
-        self.image = Image.objects.create(image=image_file, author=self.user)
         self.size = Size.objects.create(height=200)
         self.account_tier = AccountTier.objects.create(
             name="Basic",
             orginal_image=False,
             generate_links=False,
         )
+        self.account_tier.thumbnail_sizes.add(self.size)
         self.user = User.objects.create(
             username="foo", password="bar", tier=self.account_tier
         )
-
+        self.image = Image.objects.create(image=image_file, author=self.user)
         self.temporary_link = TemporaryLink.objects.create(
             seconds=600, image=self.image
         )
@@ -74,3 +73,7 @@ class ModelsTestCase(SetUpClass):
         self.account_tier.delete()
         with self.assertRaises(AccountTier.DoesNotExist):
             User.objects.create(username="foo", password="bar")
+
+    def test_new_image_sends_signal_to_create_thumbnails(self):
+        thumbnail = Thumbnail.objects.get(id=1)
+        self.assertEqual(thumbnail, self.image.thumbnail_set.first())
