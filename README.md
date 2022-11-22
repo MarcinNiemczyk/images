@@ -12,19 +12,19 @@ git clone https://github.com/martindustry/images.git
 docker-compose -p marcin_niemczyk up
 ```
 
-#### 3. Execute setup commands for migrations, fixtures and superuser
+#### 3. Enter localhost
 
 ```
-docker exec api /bin/bash docker-entrypoint.sh
+127.0.0.1:8000
 ```
 
 #### Superuser credentials
 
 username: `admin` password: `admin`
 
-#### Default tier for new user: `BASIC`\*
+#### Default tier for new user: BASIC \*
 
-\*Account Tier can be changed using django-admin UI.
+\* Account Tier can be changed using django-admin UI.
 
 ## Endpoints
 
