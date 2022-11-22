@@ -4,3 +4,7 @@ migrations/
 .idea/
 db.sqlite3
 images/
+.coverage
+.coveragerc
+htmlcov/
+.vscode
