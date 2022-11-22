@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from django.conf import settings
 from django.db.models.signals import post_save
 from django.dispatch import receiver
@@ -20,7 +22,7 @@ def create_thumbnails(sender, instance, created, **kwargs):
         thumbnail = Thumbnail(orginal_image=instance, size=size)
         img.thumbnail(output_size)
         filename = f"{instance.image.name}{height}.jpg"
-        path = settings.MEDIA_ROOT / filename
+        path = Path(settings.MEDIA_ROOT).joinpath(filename)
         img.save(path)
 
         thumbnail.image.name = filename

@@ -1,8 +1,10 @@
+import shutil
+import tempfile
 from io import BytesIO
 
 from django.core.files.images import ImageFile
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import RequestFactory, TestCase
+from django.test import RequestFactory, TestCase, override_settings
 from django.urls import reverse
 from django.urls.exceptions import NoReverseMatch
 from django.utils import timezone
@@ -13,7 +15,10 @@ from rest_framework.test import APITestCase
 from api.models import AccountTier, Image, Size, TemporaryLink, Thumbnail, User
 from api.serializers import ImageSerializer, TemporaryLinkSerializer
 
+MEDIA_ROOT = tempfile.mkdtemp()
 
+
+@override_settings(MEDIA_ROOT=MEDIA_ROOT)
 class SetUpClass(TestCase):
     def setUp(self):
         image = img.new("RGB", size=(50, 50), color=(256, 0, 0))
@@ -42,6 +47,11 @@ class SetUpClass(TestCase):
         self.temporary_link = TemporaryLink.objects.create(
             seconds=600, image=self.image
         )
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(MEDIA_ROOT, ignore_errors=True)
+        super().tearDownClass()
 
 
 class ModelsTestCase(SetUpClass):
