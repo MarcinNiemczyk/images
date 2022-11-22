@@ -1,6 +1,5 @@
 __pycache__/
 venv/
-migrations/
 .idea/
 db.sqlite3
 images/
