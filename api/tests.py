@@ -4,8 +4,11 @@ from django.core.files.images import ImageFile
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
+from django.urls.exceptions import NoReverseMatch
 from django.utils import timezone
 from PIL import Image as img
+from rest_framework import status
+from rest_framework.test import APITestCase
 
 from api.models import AccountTier, Image, Size, TemporaryLink, Thumbnail, User
 from api.serializers import ImageSerializer, TemporaryLinkSerializer
@@ -16,22 +19,26 @@ class SetUpClass(TestCase):
         image = img.new("RGB", size=(50, 50), color=(256, 0, 0))
         image_bytes = BytesIO()
         image.save(image_bytes, format="png")
-        self.image_file = ImageFile(image_bytes, name="test_image")
-        self.size = Size.objects.create(height=200)
-        self.account_tier = AccountTier.objects.create(
+        image_file = ImageFile(image_bytes, name="test_image")
+        self.size = Size.objects.create(height=100)
+        self.basic_tier = AccountTier.objects.create(
             name="Basic",
             orginal_image=False,
             generate_links=False,
         )
-        self.account_tier.thumbnail_sizes.add(
-            self.size, Size.objects.create(height=100)
+        self.basic_tier.thumbnail_sizes.add(self.size)
+        self.premium_tier = AccountTier.objects.create(
+            name="Premium",
+            orginal_image=True,
+            generate_links=True,
+        )
+        self.premium_tier.thumbnail_sizes.add(
+            self.size, Size.objects.create(height=200)
         )
         self.user = User.objects.create(
-            username="foo", password="bar", tier=self.account_tier
+            username="foo", password="bar", tier=self.basic_tier
         )
-        self.image = Image.objects.create(
-            image=self.image_file, author=self.user
-        )
+        self.image = Image.objects.create(image=image_file, author=self.user)
         self.temporary_link = TemporaryLink.objects.create(
             seconds=600, image=self.image
         )
@@ -39,12 +46,12 @@ class SetUpClass(TestCase):
 
 class ModelsTestCase(SetUpClass):
     def test_account_tier_name_max_length(self):
-        max_length = self.account_tier._meta.get_field("name").max_length
+        max_length = self.basic_tier._meta.get_field("name").max_length
         self.assertEqual(max_length, 50)
 
     def test_account_tier_object_name_is_tier_name(self):
-        expected_object_name = self.account_tier.name
-        self.assertEqual(str(self.account_tier), expected_object_name)
+        expected_object_name = self.basic_tier.name
+        self.assertEqual(str(self.basic_tier), expected_object_name)
 
     def test_size_object_name_is_height(self):
         expected_object_name = self.size.height
@@ -64,20 +71,15 @@ class ModelsTestCase(SetUpClass):
         self.assertEqual(round(difference.total_seconds(), -2), 600)
 
     def test_user_gets_basic_account_tier_by_default(self):
-        self.assertEqual(self.user.tier, self.account_tier)
+        self.assertEqual(self.user.tier, self.basic_tier)
 
     def test_user_changed_account_tier_is_not_overridden_by_default_tier(self):
-        new_tier = AccountTier.objects.create(
-            name="Premium",
-            orginal_image=True,
-            generate_links=True,
-        )
-        self.user.tier = new_tier
-        self.assertEqual(self.user.tier, new_tier)
-        self.assertNotEqual(self.user.tier, self.account_tier)
+        self.user.tier = self.premium_tier
+        self.assertEqual(self.user.tier, self.premium_tier)
+        self.assertNotEqual(self.user.tier, self.basic_tier)
 
     def test_user_raise_load_fixtures_exception(self):
-        self.account_tier.delete()
+        self.basic_tier.delete()
         with self.assertRaises(AccountTier.DoesNotExist):
             User.objects.create(username="foo", password="bar")
 
@@ -113,22 +115,19 @@ class SerializersTestCase(SetUpClass):
             instance=self.image, context={"request": self.request}
         )
         data = serializer.data
-        expected_thumbnail_sizes = [
-            self.size.height,
-            Size.objects.get(id=2).height,
-        ]
+        expected_thumbnail_sizes = [self.size.height]
         self.assertCountEqual(data["images"].keys(), expected_thumbnail_sizes)
 
     def test_image_output_depends_on_account_tier(self):
-        self.image.author.tier.orginal_image = False
+        self.user.tier = self.basic_tier
         serializer = ImageSerializer(
             instance=self.image, context={"request": self.request}
         )
         data = serializer.data
-        expected_keys = [self.size.height, Size.objects.get(id=2).height]
+        expected_keys = [self.size.height]
         self.assertCountEqual(data["images"].keys(), expected_keys)
 
-        self.image.author.tier.orginal_image = True
+        self.user.tier = self.premium_tier
         serializer = ImageSerializer(
             instance=self.image, context={"request": self.request}
         )
@@ -165,3 +164,63 @@ class SerializersTestCase(SetUpClass):
             )
         )
         self.assertEqual(data["link"], expected_url)
+
+
+class ViewsTestCase(APITestCase, SetUpClass):
+    def setUp(self):
+        super(ViewsTestCase, self).setUp()
+        self.client.force_login(self.user)
+
+    def test_api_is_accessible_only_for_authenticated_users(self):
+        self.client.logout()
+        response = self.client.get(reverse("image-list"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        response = self.client.get(reverse("generate-list"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_generate_url_accessible_for_specific_account_tier(self):
+        self.client.force_login(self.user)
+        response = self.client.get(reverse("generate-list"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        self.user.tier = self.premium_tier
+        self.user.save()
+        response = self.client.get(reverse("generate-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_image_api_returns_own_images_for_logged_user(self):
+        response = self.client.get(reverse("image-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_valid_expiring_link(self):
+        response = self.client.get(
+            reverse(
+                "temporary-links", kwargs={"link": self.temporary_link.link}
+            )
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_invalid_expiring_link(self):
+        with self.assertRaises(NoReverseMatch):
+            self.client.get(
+                reverse(
+                    "temporary-links",
+                    kwargs={"link": "foobar"},
+                )
+            )
+        response = self.client.get(
+            reverse(
+                "temporary-links",
+                kwargs={"link": "a9bf3872-b701-4e01-a183-e25cf0ac8380"},
+            )
+        )
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_expiring_link_is_available_for_everyone(self):
+        self.client.logout()
+        response = self.client.get(
+            reverse(
+                "temporary-links", kwargs={"link": self.temporary_link.link}
+            )
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
