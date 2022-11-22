@@ -2,7 +2,10 @@ from django.conf import settings
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import status, viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import (
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -29,6 +32,8 @@ class TemporaryLinkViewSet(viewsets.ModelViewSet):
 
 
 class PublicTemporaryLinkView(APIView):
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
     def get(self, request, link):
         try:
             temporary_link = TemporaryLink.objects.get(
