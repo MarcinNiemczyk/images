@@ -12,7 +12,7 @@ git clone https://github.com/martindustry/images.git
 docker-compose -p marcin_niemczyk up
 ```
 
-#### 3. Enter localhost
+#### 3. Visit localhost
 
 ```
 127.0.0.1:8000
